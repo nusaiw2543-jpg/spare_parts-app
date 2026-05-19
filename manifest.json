@@ -1,0 +1,11 @@
+{
+  "name": "แอพสแปร์พาร์ทเครื่องจักร",
+  "short_name": "SpareParts",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#2563eb",
+  "description": "แอพเก็บข้อมูลสแปร์พาร์ทเครื่องจักร",
+  "icons": []
+}
