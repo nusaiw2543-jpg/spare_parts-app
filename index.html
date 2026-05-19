@@ -1,12 +1,238 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Spare Parts App</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f3f6fb;color:#111}
+    header{background:#2563eb;color:#fff;padding:18px;border-radius:0 0 22px 22px}
+    h1{margin:0;font-size:24px}
+    .wrap{padding:14px;max-width:900px;margin:auto}
+    .box{background:#fff;border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 4px 14px #0001}
+    input,textarea,button{width:100%;padding:12px;margin:6px 0;border-radius:10px;border:1px solid #ccc;font-size:16px}
+    button{border:0;background:#2563eb;color:#fff;font-weight:bold}
+    .green{background:#059669}.red{background:#dc2626}.orange{background:#ea580c}.gray{background:#64748b}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .stat{background:#fff;border-radius:14px;padding:12px;text-align:center;box-shadow:0 4px 14px #0001}
+    .stat b{font-size:24px;display:block}
+    .card{background:#fff;border-radius:16px;padding:14px;margin:10px 0;box-shadow:0 4px 14px #0001}
+    .top{display:flex;justify-content:space-between;gap:10px}
+    .name{font-size:19px;font-weight:bold}
+    .small{color:#666;font-size:14px}
+    .qty{background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:7px 12px;font-weight:bold;height:max-content}
+    .low{background:#fee2e2;color:#b91c1c}
+    .btns{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:10px}
+    .btns button{font-size:14px;padding:10px 6px}
+    @media(max-width:650px){.grid,.stats{grid-template-columns:1fr}.btns{grid-template-columns:1fr 1fr}}
+  </style>
 </head>
 <body>
+<header>
   <h1>แอพสแปร์พาร์ทเครื่องจักร</h1>
-  <p>ทดสอบสร้างแอพสำเร็จแล้ว</p>
+  <p>เพิ่มอะไหล่ • เบิกออก • รับเข้า • ค้นหา • เช็กของใกล้หมด</p>
+</header>
+
+<div class="wrap">
+
+  <div class="stats">
+    <div class="stat"><b id="total">0</b>รายการทั้งหมด</div>
+    <div class="stat"><b id="low">0</b>ใกล้หมด</div>
+    <div class="stat"><b id="sum">0</b>จำนวนรวม</div>
+  </div>
+
+  <div class="box">
+    <input id="search" placeholder="ค้นหา ชื่ออะไหล่ / เครื่องจักร / ตำแหน่ง">
+    <button class="green" onclick="exportCSV()">ส่งออก Excel/CSV</button>
+  </div>
+
+  <div class="box">
+    <h2 id="formTitle">เพิ่มอะไหล่</h2>
+    <div class="grid">
+      <input id="code" placeholder="รหัสอะไหล่ เช่น SP-001">
+      <input id="name" placeholder="ชื่ออะไหล่ เช่น Bearing 6204">
+      <input id="machine" placeholder="ใช้กับเครื่อง เช่น Conveyor 1">
+      <input id="spec" placeholder="สเปก/รุ่น เช่น 6204ZZ">
+      <input id="qty" type="number" placeholder="จำนวนคงเหลือ">
+      <input id="min" type="number" placeholder="จำนวนขั้นต่ำ">
+      <input id="unit" placeholder="หน่วย เช่น ตัว / ลูก / เส้น">
+      <input id="loc" placeholder="ตำแหน่งเก็บ เช่น ตู้ A ชั้น 2">
+      <input id="price" type="number" placeholder="ราคา">
+      <input id="supplier" placeholder="ร้านค้า/ผู้ขาย">
+    </div>
+    <textarea id="note" placeholder="หมายเหตุ"></textarea>
+    <button onclick="savePart()">บันทึก</button>
+    <button class="gray" onclick="clearForm()">ล้างฟอร์ม</button>
+  </div>
+
+  <div id="list"></div>
+
+</div>
+
+<script>
+let parts = JSON.parse(localStorage.getItem("parts") || "[]");
+let editIndex = -1;
+
+function $(id){ return document.getElementById(id); }
+
+function saveLocal(){
+  localStorage.setItem("parts", JSON.stringify(parts));
+}
+
+function savePart(){
+  let item = {
+    code: $("code").value.trim() || "SP-" + Date.now().toString().slice(-5),
+    name: $("name").value.trim(),
+    machine: $("machine").value.trim(),
+    spec: $("spec").value.trim(),
+    qty: Number($("qty").value || 0),
+    min: Number($("min").value || 0),
+    unit: $("unit").value.trim(),
+    loc: $("loc").value.trim(),
+    price: Number($("price").value || 0),
+    supplier: $("supplier").value.trim(),
+    note: $("note").value.trim(),
+    update: new Date().toLocaleString("th-TH")
+  };
+
+  if(!item.name){
+    alert("ใส่ชื่ออะไหล่ก่อน");
+    return;
+  }
+
+  if(editIndex >= 0){
+    parts[editIndex] = item;
+  }else{
+    parts.push(item);
+  }
+
+  saveLocal();
+  clearForm();
+  render();
+}
+
+function clearForm(){
+  ["code","name","machine","spec","qty","min","unit","loc","price","supplier","note"].forEach(id => $(id).value = "");
+  editIndex = -1;
+  $("formTitle").innerText = "เพิ่มอะไหล่";
+}
+
+function editPart(i){
+  let p = parts[i];
+  $("code").value = p.code;
+  $("name").value = p.name;
+  $("machine").value = p.machine;
+  $("spec").value = p.spec;
+  $("qty").value = p.qty;
+  $("min").value = p.min;
+  $("unit").value = p.unit;
+  $("loc").value = p.loc;
+  $("price").value = p.price;
+  $("supplier").value = p.supplier;
+  $("note").value = p.note;
+  editIndex = i;
+  $("formTitle").innerText = "แก้ไขอะไหล่";
+  window.scrollTo(0,0);
+}
+
+function delPart(i){
+  if(confirm("ลบรายการนี้ใช่ไหม?")){
+    parts.splice(i,1);
+    saveLocal();
+    render();
+  }
+}
+
+function addQty(i){
+  let n = Number(prompt("รับเข้าจำนวนเท่าไหร่?", "1"));
+  if(!n || n < 1) return;
+  parts[i].qty += n;
+  parts[i].update = new Date().toLocaleString("th-TH");
+  saveLocal();
+  render();
+}
+
+function outQty(i){
+  let n = Number(prompt("เบิกออกจำนวนเท่าไหร่?", "1"));
+  if(!n || n < 1) return;
+  if(parts[i].qty - n < 0){
+    alert("จำนวนไม่พอ");
+    return;
+  }
+  parts[i].qty -= n;
+  parts[i].update = new Date().toLocaleString("th-TH");
+  saveLocal();
+  render();
+}
+
+function render(){
+  let q = $("search").value.toLowerCase();
+  let data = parts.filter(p => 
+    (p.code+p.name+p.machine+p.spec+p.loc+p.supplier).toLowerCase().includes(q)
+  );
+
+  $("total").innerText = parts.length;
+  $("low").innerText = parts.filter(p => p.qty <= p.min).length;
+  $("sum").innerText = parts.reduce((a,b) => a + Number(b.qty || 0), 0);
+
+  if(data.length === 0){
+    $("list").innerHTML = `<div class="box">ยังไม่มีข้อมูล หรือค้นหาไม่พบ</div>`;
+    return;
+  }
+
+  $("list").innerHTML = data.map((p) => {
+    let realIndex = parts.indexOf(p);
+    let low = p.qty <= p.min;
+    return `
+      <div class="card">
+        <div class="top">
+          <div>
+            <div class="name">${p.name}</div>
+            <div class="small">${p.code} • อัปเดต ${p.update || "-"}</div>
+          </div>
+          <div class="qty ${low ? "low" : ""}">${p.qty} ${p.unit}</div>
+        </div>
+        <p>
+          <b>เครื่อง:</b> ${p.machine || "-"}<br>
+          <b>สเปก:</b> ${p.spec || "-"}<br>
+          <b>ขั้นต่ำ:</b> ${p.min} ${p.unit || ""}<br>
+          <b>ตำแหน่ง:</b> ${p.loc || "-"}<br>
+          <b>ราคา:</b> ${p.price || "-"} บาท<br>
+          <b>ร้านค้า:</b> ${p.supplier || "-"}<br>
+          <b>หมายเหตุ:</b> ${p.note || "-"}
+        </p>
+        <div class="btns">
+          <button class="green" onclick="addQty(${realIndex})">รับเข้า</button>
+          <button class="orange" onclick="outQty(${realIndex})">เบิกออก</button>
+          <button onclick="editPart(${realIndex})">แก้ไข</button>
+          <button class="red" onclick="delPart(${realIndex})">ลบ</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function exportCSV(){
+  if(parts.length === 0){
+    alert("ยังไม่มีข้อมูล");
+    return;
+  }
+
+  let head = ["รหัส","ชื่ออะไหล่","เครื่องจักร","สเปก","จำนวน","ขั้นต่ำ","หน่วย","ตำแหน่ง","ราคา","ร้านค้า","หมายเหตุ","อัปเดต"];
+  let rows = parts.map(p => [p.code,p.name,p.machine,p.spec,p.qty,p.min,p.unit,p.loc,p.price,p.supplier,p.note,p.update]);
+  let csv = [head,...rows].map(r => r.map(x => `"${String(x ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
+
+  let blob = new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"});
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "spare-parts.csv";
+  a.click();
+}
+
+$("search").addEventListener("input", render);
+render();
+</script>
 </body>
 </html>
